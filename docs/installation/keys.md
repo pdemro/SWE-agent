@@ -12,6 +12,7 @@ The following `keys.cfg` example shows you how the keys are named:
 ```
 # Remove the comment '#' in front of the line for all keys that you have set
 # GITHUB_TOKEN: 'GitHub Token for access to private repos'
+# JIRA_EMAIL: 'email address associated with JIRA_TOKEN
 # JIRA_TOKEN: 'Jira token to read epics/stories/tasks'
 # OPENAI_API_KEY: 'OpenAI API Key Here if using OpenAI Model'
 # ANTHROPIC_API_KEY: 'Anthropic API Key Here if using Anthropic Model'
