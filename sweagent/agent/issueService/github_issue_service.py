@@ -8,7 +8,7 @@ from sweagent.agent.issueService.issue_service import (
     ProblemStatementResults,
     ProblemStatementSource,
 )
-from sweagent.environment.utils import InvalidGithubURL
+from sweagent.environment.utils import InvalidSourceURL
 from sweagent.utils.config import keys_config
 
 
@@ -31,7 +31,7 @@ class GitHubIssueService(IssueService):
         match = GITHUB_ISSUE_URL_PATTERN.search(issue_url)
         if not match:
             msg = f"Invalid GitHub issue URL: {issue_url}"
-            raise InvalidGithubURL(msg)
+            raise InvalidSourceURL(msg)
         res = match.groups()
         assert len(res) == 3
         return tuple(res)  # type: ignore

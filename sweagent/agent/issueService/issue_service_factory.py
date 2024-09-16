@@ -4,18 +4,9 @@ from enum import Enum, auto
 
 from sweagent.agent.issueService.file_issue_service import FileIssueService
 from sweagent.agent.issueService.github_issue_service import GitHubIssueService
+from sweagent.agent.issueService.jira_issue_service import JiraIssueService
 from sweagent.agent.issueService.issue_service import GITHUB_ISSUE_URL_PATTERN, JIRA_ISSUE_URL_PATTERN, IssueService
 from sweagent.utils.log import default_logger
-
-
-class JiraIssueService(IssueService):
-    def __init__(self, data_path):
-        super().__init__(data_path)
-
-    def get_problem_statement(self):
-        default_logger.debug(f"Jira {self.data_path}")
-
-
 class IssueDatabaseType(Enum):
     GITHUB = auto()
     JIRA = auto()

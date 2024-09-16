@@ -45,7 +45,7 @@ from sweagent.agent.agents import Agent, AgentArguments
 from sweagent.agent.models import ModelArguments
 from sweagent.environment.swe_env import EnvironmentArguments, SWEEnv
 from sweagent.environment.utils import (
-    InvalidGithubURL,
+    InvalidSourceURL,
     get_associated_commit_urls,
     get_data_path_name,
     get_gh_issue_data,
@@ -276,7 +276,7 @@ class OpenPRHook(MainHook):
             return False
         try:
             issue = get_gh_issue_data(self._data_path, token=self._token)
-        except InvalidGithubURL:
+        except InvalidSourceURL:
             logger.info("Currently only GitHub is supported to open PRs to. Skipping PR creation.")
             return False
         if issue.state != "open":

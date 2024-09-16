@@ -31,7 +31,7 @@ from sweagent.agent.issueService.issue_service_factory import IssueServiceFactor
 from sweagent.environment.utils import (
     PROCESS_DONE_MARKER_END,
     PROCESS_DONE_MARKER_START,
-    InvalidGithubURL,
+    InvalidSourceURL,
     copy_anything_to_container,
     copy_file_to_container,
     format_trajectory_markdown,
@@ -1118,7 +1118,7 @@ class SWEEnv(gym.Env):
         issue_url = self.args.data_path
         try:
             issue = get_gh_issue_data(issue_url, token=self._github_token)
-        except InvalidGithubURL as e:
+        except InvalidSourceURL as e:
             msg = "Data path must be a github issue URL if --open_pr is set."
             raise ValueError(msg) from e
         branch_name = f"swe-agent-fix-#{issue.number}-" + str(random.random())[2:10]

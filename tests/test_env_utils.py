@@ -9,7 +9,7 @@ import pytest
 from sweagent.agent.issueService.issue_service import IssueService
 from sweagent.agent.issueService.issue_service_factory import IssueServiceFactory
 from sweagent.environment.utils import (
-    InvalidGithubURL,
+    InvalidSourceURL,
     format_trajectory_markdown,
     get_associated_commit_urls,
     get_instances,
@@ -50,11 +50,11 @@ def test_parse_gh_repo_url():
 
 
 def test_parse_gh_repo_url_fails():
-    with pytest.raises(InvalidGithubURL):
+    with pytest.raises(InvalidSourceURL):
         parse_gh_repo_url("adfkj;lasdfl;kj")
-    with pytest.raises(InvalidGithubURL):
+    with pytest.raises(InvalidSourceURL):
         parse_gh_repo_url("github.com/")
-    with pytest.raises(InvalidGithubURL):
+    with pytest.raises(InvalidSourceURL):
         parse_gh_repo_url("github.com//a/")
 
 
@@ -67,9 +67,9 @@ def test_parse_gh_issue_url():
 
 
 def test_parse_gh_issue_url_fails():
-    with pytest.raises(InvalidGithubURL):
+    with pytest.raises(InvalidSourceURL):
         parse_gh_issue_url("https://github.com/a/b")
-    with pytest.raises(InvalidGithubURL):
+    with pytest.raises(InvalidSourceURL):
         parse_gh_issue_url("https://github.com/a/b////")
 
 
