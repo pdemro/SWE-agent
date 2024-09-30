@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from enum import Enum, auto
+from pathlib import Path
 
+from sweagent.agent.issueService.challenge_issue_service import ChallengeIssueService
 from sweagent.agent.issueService.file_issue_service import FileIssueService
 from sweagent.agent.issueService.github_issue_service import GitHubIssueService
 from sweagent.agent.issueService.jira_issue_service import JiraIssueService
@@ -33,7 +35,10 @@ class IssueServiceFactory:
         elif issue_type == IssueDatabaseType.JIRA:
             return JiraIssueService(data_path)
         elif issue_type == IssueDatabaseType.FILE:
-            return FileIssueService(data_path)
+            if Path(data_path).name == "challenge.json":
+                return ChallengeIssueService(data_path)
+            else:
+                return FileIssueService(data_path)
         else:
             error_message = "Invalid Issue Source"
             raise ValueError(error_message)

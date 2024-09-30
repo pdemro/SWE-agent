@@ -10,11 +10,13 @@ from sweagent.agent.issueService.issue_service import (
 )
 from sweagent.environment.utils import InvalidSourceURL
 from sweagent.utils.config import keys_config
+from sweagent.utils.log import default_logger
 
 
 class GitHubIssueService(IssueService):
     def __init__(self, data_path):
         super().__init__(data_path)
+        default_logger.debug(f"GitHub Url: {self.data_path}")
 
         self._github_token: str = keys_config.get("GITHUB_TOKEN", "")  # type: ignore
 
