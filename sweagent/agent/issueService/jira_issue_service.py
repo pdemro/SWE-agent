@@ -16,15 +16,15 @@ class JiraIssueService(IssueService):
         self.data_path = data_path
         self._token: str = keys_config.get("JIRA_TOKEN", "")
         self._email: str = keys_config.get("JIRA_EMAIL", "")
-        repo_url, self.issue_number = self._parse_issue_url(self.data_path)
-        self.jira = JIRA(repo_url, token_auth=(self._email,self._token))
+        self.repo_owner, self.issue_number = self._parse_issue_url(self.data_path)
+        self.jira = JIRA(options={'server': f"https://{repo_owner}.atlassian.net"}, basic_auth=(self._email,self._token))
 
         super().__init__(data_path)
 
     def _parse_issue_url(self, issue_url: str) -> tuple[str, str]:
         """
         Returns:
-            server: Jira server as str
+            repo owner: Repo owner (subdomain of *.atlassian.com)
             issue number: Issue number as str
 
         Raises:
@@ -40,7 +40,12 @@ class JiraIssueService(IssueService):
         return tuple(res)
 
     def get_problem_statement(self):
-        default_logger.debug("do something")
-        silly = self._parse_issue_url(self.data_path)
-        default_logger.debug(f"silly!: {silly}")
+        issue = self.jira.issue(self.issue_number)
+        summary = issue.fields.summary
+        description = issue.fields.description
+
+        problem_statmement = f"{summary}\n{description}\n"
+        instance_id = f"{self.repo_owner}__Jira-i{self.issue_number}"
+
+        return ProblemStatementResults()
         
