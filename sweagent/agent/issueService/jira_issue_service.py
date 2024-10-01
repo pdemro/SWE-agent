@@ -47,5 +47,5 @@ class JiraIssueService(IssueService):
         problem_statmement = f"{summary}\n{description}\n"
         instance_id = f"{self.repo_owner}__Jira-i{self.issue_number}"
 
-        return ProblemStatementResults()
+        return ProblemStatementResults(problem_statement=problem_statmement, instance_id=instance_id, problem_statement_source=ProblemStatementSource.ONLINE)
         
