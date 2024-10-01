@@ -17,7 +17,7 @@ class JiraIssueService(IssueService):
         self._token: str = keys_config.get("JIRA_TOKEN", "")
         self._email: str = keys_config.get("JIRA_EMAIL", "")
         self.repo_owner, self.issue_number = self._parse_issue_url(self.data_path)
-        self.jira = JIRA(options={'server': f"https://{repo_owner}.atlassian.net"}, basic_auth=(self._email,self._token))
+        self.jira = JIRA(options={'server': f"https://{self.repo_owner}.atlassian.net"}, basic_auth=(self._email,self._token))
 
         super().__init__(data_path)
 

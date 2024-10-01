@@ -879,6 +879,7 @@ def get_instances(
             and (Path(file_path).suffix in [".md", ".txt"] or Path(file_path).name == "challenge.json")
         )
         or is_github_issue_url(file_path)
+        or is_github_repo_url(repo_path)
     ):
         ib = InstanceBuilder(token=token)
         ib.set_problem_statement(problem_statement_results)
@@ -889,6 +890,8 @@ def get_instances(
             ib.set_repo_info(repo_path, base_commit=base_commit)
         elif is_github_repo_url(file_path):
             ib.set_repo_info_from_gh_url(file_path, base_commit=base_commit)
+        elif is_github_repo_url(repo_path):
+            ib.set_repo_info_from_gh_url(repo_path, base_commit=base_commit)
         else:
             msg = f"Could not determine repo path from {file_path=}, {repo_path=}"
             raise ValueError(msg)
