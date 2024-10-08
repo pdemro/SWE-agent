@@ -4,6 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 
+# TODO move me to a generic location
 GITHUB_ISSUE_URL_PATTERN = re.compile(r"github\.com\/(.*?)\/(.*?)\/issues\/(\d+)")
 
 
