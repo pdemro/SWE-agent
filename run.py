@@ -41,6 +41,11 @@ from simple_parsing.helpers.serialization.serializable import FrozenSerializable
 from swebench.harness.constants import KEY_INSTANCE_ID, KEY_MODEL, KEY_PREDICTION
 from unidiff import PatchSet
 
+from sweagent.agent.issueService.issue_service import IssueService
+from sweagent.agent.issueService.issue_service_factory import IssueServiceFactory
+from sweagent.agent.repoService.repo_service import RepoService
+from sweagent.agent.repoService.repo_service_factory import RepoServiceFactory
+
 from sweagent.agent.agents import Agent, AgentArguments
 from sweagent.agent.models import ModelArguments
 from sweagent.environment.swe_env import EnvironmentArguments, SWEEnv
@@ -51,6 +56,7 @@ from sweagent.environment.utils import (
     get_data_path_name,
     get_gh_issue_data,
     parse_gh_issue_url,
+    deserialize_trajectory
 )
 
 __doc__: str = """ Run inference. Usage examples:
@@ -147,7 +153,7 @@ class MainHook:
         # The exit status can also be `submitted (exit_cost)` etc.
         return info["exit_status"] == "submitted" and info.get("submission") is not None
 
-    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path):
+    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path, issue_service_instance:IssueService, repo_service_instance:RepoService):
         """Called when hook is initialized"""
 
     def on_start(self):
@@ -171,7 +177,7 @@ class MainHook:
 class SaveApplyPatchHook(MainHook):
     """This hook saves patches to a separate directory and optionally applies them to a local repository."""
 
-    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path):
+    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path, issue_service_instance: IssueService, repo_service_instance:RepoService):
         self._traj_dir = traj_dir
         self._apply_patch_locally = args.actions.apply_patch_locally
         self._instance = None
@@ -257,20 +263,37 @@ class SaveApplyPatchHook(MainHook):
 
 class OpenPRHook(MainHook):
     """This hook opens a PR if the issue is solved and the user has enabled the option."""
-
-    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path):
+    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path, issue_service_instance: IssueService, repo_service_instance: RepoService):
         self._env = env
         self._token: str = env._github_token
         self._data_path = args.environment.data_path
         self._open_pr = args.actions.open_pr
         self._skip_if_commits_reference_issue = args.actions.skip_if_commits_reference_issue
+        self._repo_path = args.environment.repo_path
+        self._issue_service = issue_service_instance
+        self._repo_service = repo_service_instance
+        self._traj_dir = traj_dir
+
+    # Debug PRs
+    # def on_instance_skipped(self):
+    #     instance_id = self._issue_service.get_problem_statement().instance_id
+    #     patch_file = Path(f"{self._traj_dir}/patches/{instance_id}.patch")
+
+    #     if(patch_file.is_file() and self._open_pr):
+    #         self._env.reset()
+    #         problems = self._issue_service.get_problem_statement()
+    #         trajectory = deserialize_trajectory(f"{self._traj_dir}/{problems.instance_id}.traj")
+    #         self._env.open_pr(trajectory=trajectory, issue_service=self._issue_service, repo_service=self._repo_service, patch_file=patch_file)
 
     def on_instance_completed(self, *, info, trajectory):
         if self._open_pr and self.should_open_pr(info):
-            self._env.open_pr(trajectory=trajectory)
+            self._env.open_pr(trajectory=trajectory, issue_service=self._issue_service, repo_service=self._repo_service)
 
     def should_open_pr(self, info: dict[str, Any]) -> bool:
         """Does opening a PR make sense?"""
+        if self._repo_path is not None:
+            return True
+            
         if not info.get("submission"):
             logger.info("Not opening PR because no submission was made.")
             return False
@@ -319,7 +342,14 @@ class Main:
             logger.info(f"📙 Arguments: {args.dumps_yaml()}")
         self.args = args
         self.agent = Agent("primary", args.agent)
-        self.env = SWEEnv(args.environment)
+
+        issue_service_factory = IssueServiceFactory()
+        self.issue_service_instance = issue_service_factory.create_issue_factory(args.environment.data_path)
+        repo_service_factory = RepoServiceFactory()
+        repo_path = args.environment.repo_path if args.environment.repo_path else args.environment.data_path
+        self.repo_service_instance = repo_service_factory.create_repo_factory(repo_path, logger=logger)
+
+        self.env = SWEEnv(args.environment, issue_service_instance=self.issue_service_instance)
         self._save_arguments()
         default_hooks = [
             SaveApplyPatchHook(),
@@ -330,7 +360,7 @@ class Main:
             self.add_hook(hook)
 
     def add_hook(self, hook: MainHook):
-        hook.on_init(args=self.args, agent=self.agent, env=self.env, traj_dir=self.traj_dir)
+        hook.on_init(args=self.args, agent=self.agent, env=self.env, traj_dir=self.traj_dir, issue_service_instance=self.issue_service_instance, repo_service_instance=self.repo_service_instance)
         self.hooks.append(hook)
 
     def run(self, index: int) -> None:

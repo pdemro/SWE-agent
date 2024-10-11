@@ -4,6 +4,7 @@ import re
 from abc import ABC, abstractmethod
 from enum import Enum
 
+# TODO move me to a generic location
 GITHUB_ISSUE_URL_PATTERN = re.compile(r"github\.com\/(.*?)\/(.*?)\/issues\/(\d+)")
 
 
@@ -22,11 +23,18 @@ class CtfChallengesCategories(Enum):
     FORENSICS = "forensics"
 
 
+class IssueData:
+    def __init__(self, issue_name:str, issue_id:str, issue_url):
+        self.name = issue_name
+        self.id = issue_id
+        self.url = issue_url
+
 class ProblemStatementResults:
-    def __init__(self, problem_statement: str, instance_id: str, problem_statement_source: ProblemStatementSource):
+    def __init__(self, problem_statement: str, instance_id: str, problem_statement_source: ProblemStatementSource, issue_data:IssueData):
         self.problem_statement = problem_statement
         self.instance_id = instance_id
         self.problem_statement_source = problem_statement_source
+        self.issue_data=issue_data
 
 
 # TODO Put this class somewhere it makes more sense
@@ -59,10 +67,10 @@ class ChallengeData:
 
 class IssueService(ABC):
     def __init__(self, data_path):
-        self.data_path = data_path
+        self._data_path = data_path
 
     @abstractmethod
-    def get_problem_statement(self, issue_id) -> ProblemStatementResults:
+    def get_problem_statement(self) -> ProblemStatementResults:
         pass
 
     # ... other common methods
