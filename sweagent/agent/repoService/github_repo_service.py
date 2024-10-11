@@ -1,7 +1,7 @@
 import re
 from ghapi.all import GhApi
 
-from sweagent.agent.repoService.repo_service import RepoService
+from sweagent.agent.repoService.repo_service import RepoService, PRResponse
 from sweagent.utils.config import keys_config
 from sweagent.environment.utils import InvalidGithubURL
 
@@ -32,7 +32,7 @@ class GitHubRepoService(RepoService):
         self._github_token: str = keys_config.get("GITHUB_TOKEN", "")  # type: ignore
         self.api = GhApi(token=self._github_token)
 
-    def open_pr(self, branch_name:str, title: str, body: str):
+    def open_pr(self, branch_name:str, title: str, body: str) -> PRResponse:
         """Create PR to repository
 
         Args:
@@ -52,4 +52,6 @@ class GitHubRepoService(RepoService):
             body=body,
             draft=True,
         )
+
+        return PRResponse(pr_url=pr_info.html_url)
         

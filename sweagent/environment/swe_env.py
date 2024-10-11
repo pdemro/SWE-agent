@@ -32,6 +32,8 @@ from sweagent.agent.interactive_commands import (
     InteractiveSession,
     InteractiveSessionConfig,
 )
+from sweagent.agent.repoService.repo_service import RepoService
+from sweagent.agent.issueService.issue_service import IssueService
 from sweagent.agent.issueService.issue_service_factory import IssueServiceFactory
 from sweagent.environment.utils import (
     PROCESS_DONE_MARKER_END,
@@ -159,7 +161,7 @@ class SWEEnv(gym.Env):
     # This prefix will be prepended to the image name when caching task images
     cached_image_prefix = "swe-agent-task-env-"
 
-    def __init__(self, args: EnvironmentArguments):
+    def __init__(self, args: EnvironmentArguments, issue_service_instance:IssueService):
         super().__init__()
         t0 = time.perf_counter()
         self.args = args
@@ -189,10 +191,6 @@ class SWEEnv(gym.Env):
 
         # Load Task Instances
         self.data_path = self.args.data_path
-
-        # Get Problem Statement
-        issue_service_factory = IssueServiceFactory()
-        issue_service_instance = issue_service_factory.create_issue_factory(self.data_path)
 
         self.data = get_instances(
             self.data_path,
@@ -1531,7 +1529,7 @@ class SWEEnv(gym.Env):
             raise RuntimeError(msg)
         return observation
 
-    def open_pr(self, *, trajectory, _dry_run: bool = False) -> None:
+    def open_pr(self, *, trajectory, _dry_run: bool = False, issue_service:IssueService, repo_service:RepoService, patch_file:Path) -> None:
         """Create PR to repository
 
         Args:
@@ -1541,13 +1539,12 @@ class SWEEnv(gym.Env):
         self.logger.info("Opening PR")
         # TODO: have better way of handling this
         # Adding random string suffix to avoid name conflicts if we had a previously failed run
-        issue_url = self.args.data_path
-        try:
-            issue = get_gh_issue_data(issue_url, token=self._github_token)
-        except InvalidGithubURL as e:
-            msg = "Data path must be a github issue URL if --open_pr is set."
-            raise ValueError(msg) from e
-        branch_name = f"swe-agent-fix-#{issue.number}-" + str(random.random())[2:10]
+
+        problem_statement_results = issue_service.get_problem_statement()
+        issue = problem_statement_results.issue_data
+        branch_name = f"swe-agent-fix-#{issue.id}-" + str(random.random())[2:10]
+        
+        
 
         self.communicate_with_handling(
             input="rm -f model.patch",
@@ -1559,6 +1556,13 @@ class SWEEnv(gym.Env):
             error_msg="Failed to switch to new branch",
             timeout_duration=10,
         )
+        if(patch_file):
+            copy_anything_to_container(self.container_obj, str(patch_file), "/patch-file.patch")
+            self.communicate_with_handling(
+                input=f"git apply -v /patch-file.patch",
+                error_msg=f"Could not apply patch: {str(patch_file)}",
+                timeout_duration=10
+            )
         self.communicate_with_handling(
             input="git add .",
             error_msg="Failed to add commits",
@@ -1566,8 +1570,8 @@ class SWEEnv(gym.Env):
         )
         dry_run_flag = "--allow-empty" if _dry_run else ""
         commit_msg = [
-            shlex.quote("Fix: {issue.title}"),
-            shlex.quote("Closes #{issue.number}"),
+            shlex.quote("Fix: {issue.name}"),
+            shlex.quote("Closes #{issue.id}"),
         ]
         self.communicate_with_handling(
             input=f"git commit -m {commit_msg[0]} -m  {commit_msg[1]} {dry_run_flag}",
@@ -1575,7 +1579,6 @@ class SWEEnv(gym.Env):
             timeout_duration=10,
         )
 
-        owner, repo, _ = parse_gh_issue_url(issue_url)
         # If `--repo_path` was specified with a different github URL, then the record will contain
         # the forking user
         assert self.record is not None
@@ -1587,19 +1590,20 @@ class SWEEnv(gym.Env):
         forker, _ = self.record["repo"].split("/")
         head = branch_name
         remote = "origin"
-        if forker != owner:
-            head = f"{forker}:{branch_name}"
-            token_prefix = ""
-            if self._github_token:
-                token_prefix = f"{self._github_token}@"
-            fork_url = f"https://{token_prefix}github.com/{forker}/{repo}.git"
-            self.logger.debug(f"Using fork: {fork_url}")
-            self.communicate_with_handling(
-                input=f"git remote add fork {fork_url}",
-                error_msg="Failed to create new git remote",
-                timeout_duration=10,
-            )
-            remote = "fork"
+        # TODO add fork capability to repo service.  Include fork functionality to PR method
+        # if forker != owner:
+        #     head = f"{forker}:{branch_name}"
+        #     token_prefix = ""
+        #     if self._github_token:
+        #         token_prefix = f"{self._github_token}@"
+        #     fork_url = f"https://{token_prefix}github.com/{forker}/{repo}.git"
+        #     self.logger.debug(f"Using fork: {fork_url}")
+        #     self.communicate_with_handling(
+        #         input=f"git remote add fork {fork_url}",
+        #         error_msg="Failed to create new git remote",
+        #         timeout_duration=10,
+        #     )
+        #     remote = "fork"
         dry_run_prefix = "echo " if _dry_run else ""
         self.communicate_with_handling(
             input=f"{dry_run_prefix} git push {remote} {branch_name}",
@@ -1611,22 +1615,14 @@ class SWEEnv(gym.Env):
         )
         body = (
             f"This is a PR opened by AI tool [SWE Agent](https://github.com/princeton-nlp/SWE-agent/) "
-            f"to close [#{issue.number}]({issue_url}) ({issue.title}).\n\nCloses #{issue.number}."
+            f"to close [#{issue.id}]({issue.url}) ({issue.name}).\n\nCloses #{issue.id}."
         )
         body += "\n\n" + format_trajectory_markdown(trajectory)
-        api = GhApi(token=self._github_token)
+        title=f"SWE-agent[bot] PR to fix: {issue.name}"
         if not _dry_run:
-            pr_info = api.pulls.create(
-                owner=owner,
-                repo=repo,
-                title=f"SWE-agent[bot] PR to fix: {issue.title}",
-                head=head,
-                base="main",
-                body=body,
-                draft=True,
-            )
+            pr_info = repo_service.open_pr(branch_name=branch_name, title=title, body=body)
             self.logger.info(
-                f"🎉 PR created as a draft at {pr_info.html_url}. Please review it carefully, push "
+                f"🎉 PR created as a draft at {pr_info.url}. Please review it carefully, push "
                 "any required changes onto the branch and then click "
                 "'Ready for Review' to bring it to the attention of the maintainers.",
             )

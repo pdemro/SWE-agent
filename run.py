@@ -177,7 +177,7 @@ class MainHook:
 class SaveApplyPatchHook(MainHook):
     """This hook saves patches to a separate directory and optionally applies them to a local repository."""
 
-    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path):
+    def on_init(self, *, args: ScriptArguments, agent: Agent, env: SWEEnv, traj_dir: Path, issue_service_instance: IssueService, repo_service_instance:RepoService):
         self._traj_dir = traj_dir
         self._apply_patch_locally = args.actions.apply_patch_locally
         self._instance = None
@@ -274,13 +274,16 @@ class OpenPRHook(MainHook):
         self._repo_service = repo_service_instance
         self._traj_dir = traj_dir
 
-    # Let's try opening the PR anyway to test?
-    # TODO this should be conditional on something
-    def on_instance_skipped(self):
-        self._env.reset()
-        problems = self._issue_service.get_problem_statement()
-        trajectory = deserialize_trajectory(f"{self._traj_dir}/{problems.instance_id}.traj")
-        self._env.open_pr(trajectory=trajectory, issue_service=self._issue_service, repo_service=self._repo_service)
+    # Debug PRs
+    # def on_instance_skipped(self):
+    #     instance_id = self._issue_service.get_problem_statement().instance_id
+    #     patch_file = Path(f"{self._traj_dir}/patches/{instance_id}.patch")
+
+    #     if(patch_file.is_file() and self._open_pr):
+    #         self._env.reset()
+    #         problems = self._issue_service.get_problem_statement()
+    #         trajectory = deserialize_trajectory(f"{self._traj_dir}/{problems.instance_id}.traj")
+    #         self._env.open_pr(trajectory=trajectory, issue_service=self._issue_service, repo_service=self._repo_service, patch_file=patch_file)
 
     def on_instance_completed(self, *, info, trajectory):
         if self._open_pr and self.should_open_pr(info):
