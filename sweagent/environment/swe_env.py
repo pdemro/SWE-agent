@@ -1413,8 +1413,6 @@ class SWEEnv(gym.Env):
         issue = problem_statement_results.issue_data
         branch_name = f"swe-agent-fix-#{issue.id}-" + str(random.random())[2:10]
         
-        
-
         self.communicate_with_handling(
             input="rm -f model.patch",
             error_msg="Failed to remove model patch",
