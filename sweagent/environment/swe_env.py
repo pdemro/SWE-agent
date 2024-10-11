@@ -34,6 +34,7 @@ from sweagent.agent.interactive_commands import (
     get_interactive_commands,
     get_interactive_session,
 )
+from sweagent.agent.issueService.issue_service_factory import IssueServiceFactory
 from sweagent.environment.utils import (
     PROCESS_DONE_MARKER_END,
     PROCESS_DONE_MARKER_START,
@@ -188,12 +189,18 @@ class SWEEnv(gym.Env):
 
         # Load Task Instances
         self.data_path = self.args.data_path
+
+        # Get Problem Statement
+        issue_service_factory = IssueServiceFactory()
+        issue_service_instance = issue_service_factory.create_issue_factory(self.data_path)
+
         self.data = get_instances(
             self.data_path,
             self.args.base_commit,
             self.args.split,
             token=self._github_token,
             repo_path=self.args.repo_path,
+            issue_service=issue_service_instance,
         )
         #: Instance we're currently processing. Gets set in self.reset.
         self.record: dict[str, Any] | None = None

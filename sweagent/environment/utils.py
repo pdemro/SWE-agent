@@ -24,6 +24,9 @@ from unidiff import PatchSet
 import docker
 import docker.types
 from docker.models.containers import Container
+from sweagent.agent.interactive_commands import InteractiveSession
+from sweagent.agent.issueService.helpers import get_challenge_data_from_json
+from sweagent.agent.issueService.issue_service import IssueService, ProblemStatementResults
 from sweagent.utils.config import keys_config
 from sweagent.utils.log import get_logger
 
@@ -32,15 +35,6 @@ DOCKER_COMPOSE_TERMINATION_DELAY = float(keys_config.get("SWE_AGENT_DOCKER_START
 DOCKER_COMPOSE_STARTUP_DELAY = float(keys_config.get("SWE_AGENT_DOCKER_START_UP_DELAY", 600))
 GITHUB_ISSUE_URL_PATTERN = re.compile(r"github\.com\/(.*?)\/(.*?)\/issues\/(\d+)")
 GITHUB_REPO_URL_PATTERN = re.compile(r".*[/@]?github\.com\/([^/]+)\/([^/]+)")
-
-CTF_CHALLENGES_CATEGORIES = {
-    "rev": "reverse engineering",
-    "pwn": "binary exploitation",
-    "web": "web security",
-    "crypto": "cryptography",
-    "misc": "miscellaneous",
-    "forensics": "forensics",
-}
 
 logger = get_logger("env_utils")
 
@@ -720,17 +714,6 @@ class InstanceBuilder:
         self.token = token
         self._instance_id_problem_suffix = ""
 
-    def set_problem_statement_from_gh_issue(self, issue_url: str):
-        owner, repo, issue_number = parse_gh_issue_url(issue_url)
-        self.args["problem_statement"] = get_problem_statement_from_github_issue(
-            owner,
-            repo,
-            issue_number,
-            token=self.token,
-        )
-        self.args["instance_id"] = f"{owner}__{repo}-i{issue_number}"
-        self.args["problem_statement_source"] = "online"
-
     def set_server_description(self, server_name: str | None, port: int | None) -> None:
         """For CTF challenges"""
         if server_name is None or port is None:
@@ -747,50 +730,23 @@ class InstanceBuilder:
 
     def set_problem_statement_from_challenge_json(self, file_path: str) -> None:
         """For CTF challenges"""
-        challenge = json.loads(Path(file_path).read_text())
-        self.args["challenge"] = challenge
-        self.args["challenge"]["files"] = challenge.get("files", [])
-        self.args["challenge"]["points"] = challenge.get("points", 10)
-        self.args["challenge"]["category_friendly"] = CTF_CHALLENGES_CATEGORIES.get(challenge["category"])
-        if (Path(file_path).parent / "docker-compose.yml").is_file():
-            logger.debug(f"Found docker_compose file in {Path(file_path).parent}")
-            self.args["challenge"]["docker_compose"] = Path(file_path).parent / "docker-compose.yml"
-        self.args["challenge"]["port"] = challenge.get("internal_port") or challenge.get("port")
-        if "box" in challenge:
-            self.args["challenge"]["server_name"] = challenge["box"] or "127.0.0.1"
-        else:
-            self.args["challenge"]["server_name"] = ""
-        self.args["challenge"]["file_path"] = file_path
-        self.set_server_description(self.args["challenge"]["server_name"], self.args["challenge"]["port"])
-        self.set_problem_statement_from_text(f"{challenge['name']} {challenge['description']}")
-        self.args["instance_id"] = (
-            # sanitize 'name' to only alphanumeric characters
-            challenge.get("category", "misc") + "_" + "".join(a for a in self.args["challenge"]["name"] if a.isalnum())
-        )
+        challenge_data = get_challenge_data_from_json(file_path)
 
-    def set_problem_statement_from_file(self, file_path: str):
-        if Path(file_path).name == "challenge.json":
-            self.set_problem_statement_from_challenge_json(file_path)
-        else:
-            self.set_problem_statement_from_text(Path(file_path).read_text())
+        # TODO refactor this to simply pass around the strongly typed challenge_data object
+        self.args["challenge"] = challenge_data.challenge
+        self.args["challenge"]["files"] = challenge_data.files
+        self.args["challenge"]["points"] = challenge_data.points
+        self.args["challenge"]["category_friendly"] = challenge_data.category_friendly
+        self.args["challenge"]["docker_compose"] = challenge_data.docker_compose
+        self.args["challenge"]["port"] = challenge_data.port
+        self.args["challenge"]["server_name"] = challenge_data.server_name
+        self.args["challenge"]["file_path"] = challenge_data.file_path
+        self.set_server_description(challenge_data.server_name, challenge_data.port)
 
-    def set_problem_statement_from_text(self, text: str):
-        self.args["problem_statement"] = text
-        self.args["instance_id"] = hashlib.sha256(self.args["problem_statement"].encode()).hexdigest()[:6]
-        self.args["problem_statement_source"] = "local"
-
-    def set_problem_statement(self, data_path: str):
-        """Get problem statement for a single instance from a github issue url or a
-        path to a markdown or text file.
-        """
-        if data_path.startswith("text://"):
-            return self.set_problem_statement_from_text(data_path.removeprefix("text://"))
-        if is_github_issue_url(data_path):
-            return self.set_problem_statement_from_gh_issue(data_path)
-        if Path(data_path).is_file():
-            return self.set_problem_statement_from_file(data_path)
-        msg = f"Not sure how to get problem statement from {data_path=}."
-        raise ValueError(msg)
+    def set_problem_statement(self, problem_statement_results: ProblemStatementResults):
+        self.args["problem_statement"] = problem_statement_results.problem_statement
+        self.args["instance_id"] = problem_statement_results.instance_id
+        self.args["problem_statement_source"] = problem_statement_results.problem_statement_source.value
 
     def set_repo_info_from_gh_url(self, url: str, base_commit: str | None = None):
         owner, repo = parse_gh_repo_url(url)
@@ -876,6 +832,7 @@ def get_instances(
     token: str | None = None,
     *,
     repo_path: str = "",
+    issue_service: IssueService,
 ) -> list[dict[str, Any]]:
     """
     Getter function for handling json, jsonl files
@@ -898,6 +855,9 @@ def get_instances(
             raise ValueError(msg)
         return [instance_from_dict(x) for x in instances]
 
+    # Get Problem Statement
+    problem_statement_results = issue_service.get_problem_statement()
+
     # The next if statement is very brittle logic to determine if we're processing a single instance
     if (
         file_path.startswith("text://")
@@ -908,7 +868,10 @@ def get_instances(
         or is_github_issue_url(file_path)
     ):
         ib = InstanceBuilder(token=token)
-        ib.set_problem_statement(file_path)
+        ib.set_problem_statement(problem_statement_results)
+        if Path(file_path).name == "challenge.json":
+            ib.set_problem_statement_from_challenge_json(file_path)
+
         if repo_path:
             ib.set_repo_info(repo_path, base_commit=base_commit)
         elif is_github_repo_url(file_path):
