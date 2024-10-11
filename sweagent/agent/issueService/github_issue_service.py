@@ -7,6 +7,7 @@ from sweagent.agent.issueService.issue_service import (
     IssueService,
     ProblemStatementResults,
     ProblemStatementSource,
+    IssueData
 )
 from sweagent.environment.utils import InvalidGithubURL
 from sweagent.utils.config import keys_config
@@ -16,7 +17,7 @@ from sweagent.utils.log import default_logger
 class GitHubIssueService(IssueService):
     def __init__(self, data_path):
         super().__init__(data_path)
-        default_logger.debug(f"GitHub Url: {self.data_path}")
+        default_logger.debug(f"GitHub Url: {self._data_path}")
 
         self._github_token: str = keys_config.get("GITHUB_TOKEN", "")  # type: ignore
 
@@ -48,10 +49,11 @@ class GitHubIssueService(IssueService):
         body = issue.body if issue.body else ""
         problem_statement = f"{title}\n{body}\n"
         instance_id = f"{owner}__{repo}-i{issue_number}"
-        return ProblemStatementResults(problem_statement, instance_id, ProblemStatementSource.ONLINE)
+        issue_data = IssueData(issue_name=title, issue_id=issue_number, issue_url=self._data_path)
+        return ProblemStatementResults(problem_statement, instance_id, ProblemStatementSource.ONLINE, issue_data=issue_data)
 
     def get_problem_statement(self):
-        owner, repo, issue_number = self._parse_gh_issue_url(self.data_path)
+        owner, repo, issue_number = self._parse_gh_issue_url(self._data_path)
         return self._get_problem_statement_from_github_issue(
             owner,
             repo,

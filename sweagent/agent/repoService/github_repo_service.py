@@ -1,3 +1,6 @@
+import re
+from ghapi.all import GhApi
+
 from sweagent.agent.repoService.repo_service import RepoService
 from sweagent.utils.config import keys_config
 from sweagent.environment.utils import InvalidGithubURL
@@ -38,20 +41,15 @@ class GitHubRepoService(RepoService):
         """
         self.logger.info("Opening PR")
 
-        owner, repo, _ = parse_gh_repo_url(repo_url)
+        owner, repo = parse_gh_repo_url(repo_url=self.repo_path)
         
-        # pr_info = api.pulls.create(
-        #     owner=owner,
-        #     repo=repo,
-        #     title=title,
-        #     head=head,
-        #     base="main",
-        #     body=body,
-        #     draft=True,
-        # )
-        self.logger.info(
-            f"🎉 PR created as a draft at {pr_info.html_url}. Please review it carefully, push "
-            "any required changes onto the branch and then click "
-            "'Ready for Review' to bring it to the attention of the maintainers.",
+        pr_info = self.api.pulls.create(
+            owner=owner,
+            repo=repo,
+            title=title,
+            head=branch_name,
+            base="main",
+            body=body,
+            draft=True,
         )
         

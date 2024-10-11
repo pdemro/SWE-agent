@@ -961,6 +961,32 @@ def get_associated_commit_urls(org: str, repo: str, issue_number: str, *, token:
 def remove_triple_backticks(text: str) -> str:
     return "\n".join(line.removeprefix("```") for line in text.splitlines())
 
+def deserialize_trajectory(file_path: str) -> list[dict[str, str]]:
+    """Deserializes a JSON file containing trajectory data.
+
+    Args:
+        file_path (str): The path to the JSON file.
+
+    Returns:
+        list[dict[str, str]]: A list of dictionaries, each representing a step in the trajectory.
+    """
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+
+    trajectory_items = []
+    for item_data in data['trajectory']:
+        item = {
+            "action": item_data['action'],
+            "observation": item_data['observation'],
+            "response": item_data['response'],
+            "state": item_data['state'],
+            "thought": item_data['thought'],
+            "execution_time": str(item_data['execution_time'])  # Convert execution_time to string
+        }
+        trajectory_items.append(item)
+
+    return trajectory_items
+
 
 def format_trajectory_markdown(trajectory: list[dict[str, str]]):
     """Format a trajectory as a markdown string for use in gh PR description."""
