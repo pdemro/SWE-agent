@@ -24,7 +24,6 @@ from unidiff import PatchSet
 import docker
 import docker.types
 from docker.models.containers import Container
-from sweagent.agent.interactive_commands import InteractiveSession
 from sweagent.agent.issueService.helpers import get_challenge_data_from_json
 from sweagent.agent.issueService.issue_service import IssueService, ProblemStatementResults
 from sweagent.utils.config import keys_config
