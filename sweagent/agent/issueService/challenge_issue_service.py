@@ -8,7 +8,7 @@ from sweagent.utils.log import default_logger
 class ChallengeIssueService(IssueService):
     def __init__(self, data_path):
         super().__init__(data_path)
-        default_logger.debug(f"Challenge File: {self.data_path}")
+        default_logger.debug(f"Challenge File: {self._data_path}")
 
     def _get_challenge_data_from_challenge_json(self, file_path: str) -> ProblemStatementResults:
         challenge_data = get_challenge_data_from_json(file_path=file_path)
@@ -26,4 +26,4 @@ class ChallengeIssueService(IssueService):
         return ProblemStatementResults(problem_statement, instance_id, ProblemStatementSource.LOCAL)
 
     def get_problem_statement(self) -> ProblemStatementResults:
-        return self._get_challenge_data_from_challenge_json(self.data_path)
+        return self._get_challenge_data_from_challenge_json(self._data_path)

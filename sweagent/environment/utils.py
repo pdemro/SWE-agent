@@ -24,7 +24,6 @@ from unidiff import PatchSet
 import docker
 import docker.types
 from docker.models.containers import Container
-from sweagent.agent.interactive_commands import InteractiveSession
 from sweagent.agent.issueService.helpers import get_challenge_data_from_json
 from sweagent.agent.issueService.issue_service import IssueService, ProblemStatementResults
 from sweagent.utils.config import keys_config
@@ -97,19 +96,19 @@ def copy_file_to_container(container: Container, contents: str, container_path: 
                 # Prepare the TAR archive
                 with BytesIO() as tar_stream:
                     with tarfile.open(fileobj=tar_stream, mode="w") as tar:
-                        tar_info = tarfile.TarInfo(name=os.path.basename(container_path))
-                        tar_info.size = os.path.getsize(temp_file_name)
+                        tar_info = tarfile.TarInfo(name=Path(container_path).name)
+                        tar_info.size = Path(temp_file_name).stat().st_size
                         tar.addfile(tarinfo=tar_info, fileobj=temp_file)
                     tar_stream.seek(0)
                     # Copy the TAR stream to the container
-                    container.put_archive(path=os.path.dirname(container_path), data=tar_stream.read())
+                    container.put_archive(path=Path(container_path).parent, data=tar_stream.read())
 
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         logger.error(traceback.format_exc())
     finally:
         # Cleanup: Remove the temporary file if it was created
-        if temp_file_name and os.path.exists(temp_file_name):
+        if temp_file_name and Path(temp_file_name).exists():
             os.remove(temp_file_name)
 
 
@@ -436,19 +435,6 @@ def get_docker_compose(docker_compose_path: Path) -> Path:
     return docker_compose_path
 
 
-def get_interactive_session(ctr_name: str, cwd: str, session_name: str, cmdline: str, *args) -> InteractiveSession:
-    """
-    Starts a new interacitve session on the given container name.
-    Returns a subprocess.Popen object that is available for further read/writes for submitting commands and reading output.
-    """
-    startup_cmd = ["docker", "exec", "-i", "-w", cwd, ctr_name, cmdline, *args]
-    logger.debug(f"Starting interactive session {session_name} with command: {shlex.join(startup_cmd)}")
-    session = subprocess.Popen(startup_cmd, stdin=PIPE, stdout=PIPE, stderr=STDOUT, text=True, bufsize=1)
-    time.sleep(DOCKER_START_UP_DELAY)
-    _ = read_with_timeout(session, lambda: list(), timeout_duration=1)
-    return InteractiveSession(name=session_name, session_process=session)
-
-
 def _get_container_mounts_list(container_mounts: list[str]) -> list[docker.types.Mount]:
     try:
         for i in range(len(container_mounts)):
@@ -467,6 +453,8 @@ def _get_non_persistent_container(
     startup_cmd = [
         "docker",
         "run",
+        "--network",
+        "host",
         "-i",
         "--rm",
         *[item for mount in container_mounts for item in ("-v", f"{Path(mount).absolute()}:/{Path(mount).name}")],
@@ -474,7 +462,7 @@ def _get_non_persistent_container(
         ctr_name,
         image_name,
         "/bin/bash",
-        "-l",
+        "-l"
     ]
     logger.debug("Starting container with command: %s", shlex.join(startup_cmd))
     container = subprocess.Popen(
@@ -660,25 +648,6 @@ def get_commit(api: GhApi, owner: str, repo: str, ref: str | None = None):
 class InvalidSourceURL(ValueError): ...
 
 
-def parse_gh_issue_url(issue_url: str) -> tuple[str, str, str]:
-    """
-    Returns:
-        owner: Repo owner
-        repo: Repo name
-        issue number: Issue number as str
-
-    Raises:
-        InvalidGithubURL: If the URL is not a valid github issue URL
-    """
-    match = GITHUB_ISSUE_URL_PATTERN.search(issue_url)
-    if not match:
-        msg = f"Invalid GitHub issue URL: {issue_url}"
-        raise InvalidSourceURL(msg)
-    res = match.groups()
-    assert len(res) == 3
-    return tuple(res)  # type: ignore
-
-
 def parse_gh_repo_url(repo_url: str) -> tuple[str, str]:
     """
     Returns:
@@ -695,17 +664,6 @@ def parse_gh_repo_url(repo_url: str) -> tuple[str, str]:
     res = match.groups()
     assert len(res) == 2
     return tuple(res)  # type: ignore
-
-
-def get_gh_issue_data(issue_url: str, *, token: str = ""):
-    """Returns github issue data in the form of a dictionary.
-    See https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#get-an-issue
-    for return format
-    """
-    owner, repo, issue_number = parse_gh_issue_url(issue_url)
-    api = GhApi(token=token)
-    return api.issues.get(owner, repo, issue_number)
-
 
 def get_problem_statement_from_github_issue(owner: str, repo: str, issue_number: str, *, token: str | None = "") -> str:
     """Return problem statement from github issue"""
@@ -910,7 +868,7 @@ def get_instances(
         raise ValueError(msg)
 
     # If file_path is a directory, attempt load from disk
-    if os.path.isdir(file_path):
+    if Path(file_path).is_dir():
         try:
             dataset_or_dict = load_from_disk(file_path)
             if isinstance(dataset_or_dict, dict):
@@ -963,6 +921,32 @@ def get_associated_commit_urls(org: str, repo: str, issue_number: str, *, token:
 
 def remove_triple_backticks(text: str) -> str:
     return "\n".join(line.removeprefix("```") for line in text.splitlines())
+
+def deserialize_trajectory(file_path: str) -> list[dict[str, str]]:
+    """Deserializes a JSON file containing trajectory data.
+
+    Args:
+        file_path (str): The path to the JSON file.
+
+    Returns:
+        list[dict[str, str]]: A list of dictionaries, each representing a step in the trajectory.
+    """
+    with open(file_path, 'r') as f:
+        data = json.load(f)
+
+    trajectory_items = []
+    for item_data in data['trajectory']:
+        item = {
+            "action": item_data['action'],
+            "observation": item_data['observation'],
+            "response": item_data['response'],
+            "state": item_data['state'],
+            "thought": item_data['thought'],
+            "execution_time": str(item_data['execution_time'])  # Convert execution_time to string
+        }
+        trajectory_items.append(item)
+
+    return trajectory_items
 
 
 def format_trajectory_markdown(trajectory: list[dict[str, str]]):

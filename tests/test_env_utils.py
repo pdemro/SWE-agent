@@ -6,6 +6,7 @@ import subprocess
 
 import pytest
 
+from sweagent.agent.issueService.github_issue_service import parse_gh_issue_url
 from sweagent.agent.issueService.issue_service import IssueService
 from sweagent.agent.issueService.issue_service_factory import IssueServiceFactory
 from sweagent.environment.utils import (
@@ -15,7 +16,6 @@ from sweagent.environment.utils import (
     get_instances,
     is_github_issue_url,
     is_github_repo_url,
-    parse_gh_issue_url,
     parse_gh_repo_url,
     remove_triple_backticks,
 )
