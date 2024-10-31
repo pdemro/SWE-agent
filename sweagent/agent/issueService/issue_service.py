@@ -1,4 +1,7 @@
 from __future__ import annotations
+from dataclasses import dataclass
+
+
 
 import re
 from abc import ABC, abstractmethod
@@ -23,11 +26,16 @@ class CtfChallengesCategories(Enum):
     FORENSICS = "forensics"
 
 
+@dataclass
 class IssueData:
-    def __init__(self, issue_name:str, issue_id:str, issue_url):
-        self.name = issue_name
-        self.id = issue_id
-        self.url = issue_url
+    name: str
+    id: str
+    url: str
+    state: str
+    assignee: str
+    locked: bool
+    owner: str
+    repo: str # Only GitHub?
 
 class ProblemStatementResults:
     def __init__(self, problem_statement: str, instance_id: str, problem_statement_source: ProblemStatementSource, issue_data:IssueData):

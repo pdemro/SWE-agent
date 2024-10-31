@@ -453,6 +453,8 @@ def _get_non_persistent_container(
     startup_cmd = [
         "docker",
         "run",
+        "--network",
+        "host",
         "-i",
         "--rm",
         *[item for mount in container_mounts for item in ("-v", f"{Path(mount).absolute()}:/{Path(mount).name}")],
@@ -460,7 +462,7 @@ def _get_non_persistent_container(
         ctr_name,
         image_name,
         "/bin/bash",
-        "-l",
+        "-l"
     ]
     logger.debug("Starting container with command: %s", shlex.join(startup_cmd))
     container = subprocess.Popen(
@@ -646,25 +648,6 @@ def get_commit(api: GhApi, owner: str, repo: str, ref: str | None = None):
 class InvalidGithubURL(ValueError): ...
 
 
-def parse_gh_issue_url(issue_url: str) -> tuple[str, str, str]:
-    """
-    Returns:
-        owner: Repo owner
-        repo: Repo name
-        issue number: Issue number as str
-
-    Raises:
-        InvalidGithubURL: If the URL is not a valid github issue URL
-    """
-    match = GITHUB_ISSUE_URL_PATTERN.search(issue_url)
-    if not match:
-        msg = f"Invalid GitHub issue URL: {issue_url}"
-        raise InvalidGithubURL(msg)
-    res = match.groups()
-    assert len(res) == 3
-    return tuple(res)  # type: ignore
-
-
 def parse_gh_repo_url(repo_url: str) -> tuple[str, str]:
     """
     Returns:
@@ -681,17 +664,6 @@ def parse_gh_repo_url(repo_url: str) -> tuple[str, str]:
     res = match.groups()
     assert len(res) == 2
     return tuple(res)  # type: ignore
-
-
-def get_gh_issue_data(issue_url: str, *, token: str = ""):
-    """Returns github issue data in the form of a dictionary.
-    See https://docs.github.com/en/rest/issues/issues?apiVersion=2022-11-28#get-an-issue
-    for return format
-    """
-    owner, repo, issue_number = parse_gh_issue_url(issue_url)
-    api = GhApi(token=token)
-    return api.issues.get(owner, repo, issue_number)
-
 
 def get_problem_statement_from_github_issue(owner: str, repo: str, issue_number: str, *, token: str | None = "") -> str:
     """Return problem statement from github issue"""

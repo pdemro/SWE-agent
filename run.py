@@ -54,8 +54,6 @@ from sweagent.environment.utils import (
     extract_flag_format,
     get_associated_commit_urls,
     get_data_path_name,
-    get_gh_issue_data,
-    parse_gh_issue_url,
     deserialize_trajectory
 )
 
@@ -301,7 +299,7 @@ class OpenPRHook(MainHook):
             logger.info("Not opening PR because exit status was %s and not submitted.", info["exit_status"])
             return False
         try:
-            issue = get_gh_issue_data(self._data_path, token=self._token)
+            issue = self._issue_service.get_problem_statement().issue_data
         except InvalidGithubURL:
             logger.info("Currently only GitHub is supported to open PRs to. Skipping PR creation.")
             return False
@@ -314,8 +312,7 @@ class OpenPRHook(MainHook):
         if issue.locked:
             logger.info("Issue is locked. Skipping PR creation.")
             return False
-        org, repo, issue_number = parse_gh_issue_url(self._data_path)
-        associated_commits = get_associated_commit_urls(org, repo, issue_number, token=self._token)
+        associated_commits = get_associated_commit_urls(issue.owner, issue.repo, issue.id, token=self._token)
         if associated_commits:
             commit_url_strs = ", ".join(associated_commits)
             if self._skip_if_commits_reference_issue:
