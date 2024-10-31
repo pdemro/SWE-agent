@@ -5,6 +5,7 @@ theme:
   icon:
     repo: fontawesome/brands/github
   logo: assets/swe-agent.svg
+  favicon: assets/swe-agent.svg
   palette:
     - media: "(prefers-color-scheme)"
       toggle:
@@ -26,6 +27,7 @@ theme:
         name: Switch to light mode
   features:
     - navigation.indexes
+    - navigation.top
     - content.action.edit
     - navigation.footer
     - content.code.copy
