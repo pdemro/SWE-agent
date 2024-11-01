@@ -22,12 +22,12 @@ def parse_gh_issue_url(issue_url: str) -> tuple[str, str, str]:
         issue number: Issue number as str
 
     Raises:
-        InvalidGithubURL: If the URL is not a valid github issue URL
+        InvalidSourceURL: If the URL is not a valid github issue URL
     """
     match = GITHUB_ISSUE_URL_PATTERN.search(issue_url)
     if not match:
         msg = f"Invalid GitHub issue URL: {issue_url}"
-        raise InvalidGithubURL(msg)
+        raise InvalidSourceURL(msg)
     res = match.groups()
     assert len(res) == 3
     return tuple(res)  # type: ignore
