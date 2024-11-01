@@ -3,7 +3,7 @@ from ghapi.all import GhApi
 
 from sweagent.agent.repoService.repo_service import RepoService, PRResponse
 from sweagent.utils.config import keys_config
-from sweagent.environment.utils import InvalidGithubURL
+from sweagent.environment.utils import InvalidSourceURL
 
 
 GITHUB_REPO_URL_PATTERN = re.compile(r".*[/@]?github\.com\/([^/]+)\/([^/]+)")
@@ -15,12 +15,12 @@ def parse_gh_repo_url(repo_url: str) -> tuple[str, str]:
         repo: Repo name
 
     Raises:
-        InvalidGithubURL: If the URL is not a valid github repo URL
+        InvalidSourceURL: If the URL is not a valid github repo URL
     """
     match = GITHUB_REPO_URL_PATTERN.search(repo_url)
     if not match:
         msg = f"Invalid GitHub issue URL: {repo_url}"
-        raise InvalidGithubURL(msg)
+        raise InvalidSourceURL(msg)
     res = match.groups()
     assert len(res) == 2
     return tuple(res)  # type: ignore

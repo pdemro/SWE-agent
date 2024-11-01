@@ -300,7 +300,7 @@ class OpenPRHook(MainHook):
             return False
         try:
             issue = self._issue_service.get_problem_statement().issue_data
-        except InvalidGithubURL:
+        except InvalidSourceURL:
             logger.info("Currently only GitHub is supported to open PRs to. Skipping PR creation.")
             return False
         if issue.state != "open":
