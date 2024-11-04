@@ -3,7 +3,8 @@ from sweagent.agent.issueService.issue_service import (
     IssueService,
     ProblemStatementResults,
     ProblemStatementSource,
-    JIRA_ISSUE_URL_PATTERN
+    JIRA_ISSUE_URL_PATTERN,
+    IssueData
 )
 from jira import JIRA
 from sweagent.environment.utils import InvalidSourceURL
@@ -44,8 +45,24 @@ class JiraIssueService(IssueService):
         summary = issue.fields.summary
         description = issue.fields.description
 
-        problem_statmement = f"{summary}\n{description}\n"
+        problem_statement = f"{summary}\n{description}\n"
         instance_id = f"{self.repo_owner}__Jira-i{self.issue_number}"
 
-        return ProblemStatementResults(problem_statement=problem_statmement, instance_id=instance_id, problem_statement_source=ProblemStatementSource.ONLINE)
-        
+        issue_data = IssueData(
+            name=summary,
+            id=self.issue_number,
+            url="",
+            state=issue.fields.status.name,
+            assignee=issue.fields.assignee.displayName if issue.fields.assignee else None,
+            locked=False,
+            owner=self.repo_owner,
+        )
+
+        return ProblemStatementResults(
+            problem_statement=problem_statement,
+            instance_id=instance_id,
+            problem_statement_source=ProblemStatementSource.ONLINE,
+            issue_data=issue_data
+        )
+
+            

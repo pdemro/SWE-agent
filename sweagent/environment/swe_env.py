@@ -1406,7 +1406,7 @@ class SWEEnv(gym.Env):
             raise RuntimeError(msg)
         return observation
 
-    def open_pr(self, *, trajectory, _dry_run: bool = False, issue_service:IssueService, repo_service:RepoService, patch_file:Path) -> None:
+    def open_pr(self, *, trajectory, _dry_run: bool = False, issue_service:IssueService, repo_service:RepoService, patch_file: Path | None = None) -> None:
         """Create PR to repository
 
         Args:

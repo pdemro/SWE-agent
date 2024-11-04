@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
-
-
+from typing import Optional
 
 import re
 from abc import ABC, abstractmethod
@@ -36,7 +35,7 @@ class IssueData:
     assignee: str
     locked: bool
     owner: str
-    repo: str # Only GitHub?
+    repo: Optional[str] = None # Only GitHub?
 
 class ProblemStatementResults:
     def __init__(self, problem_statement: str, instance_id: str, problem_statement_source: ProblemStatementSource, issue_data:IssueData):
